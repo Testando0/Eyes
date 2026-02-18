@@ -3,27 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crisálida Eternal</title>
+    <title>Crisálida - Red Heart Flow</title>
     <style>
         * { margin: 0; padding: 0; }
-        body, html { 
-            width: 100%; height: 100%; 
-            overflow: hidden; background-color: #000; 
-        }
-        canvas { display: block; position: absolute; top: 0; left: 0; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000; }
+        canvas { display: block; filter: blur(0.5px) contrast(1.2); }
         #text {
             position: absolute;
             top: 15%;
             width: 100%;
             text-align: center;
             color: #ff0000;
-            font-family: 'Georgia', serif;
-            font-size: clamp(2rem, 8vw, 3.5rem);
-            font-style: italic;
-            text-shadow: 0 0 15px #ff0000, 0 0 30px #8b0000;
-            z-index: 10;
+            font-family: 'Arial', sans-serif;
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px #ff0000;
+            z-index: 100;
             pointer-events: none;
-            opacity: 0.8;
+            letter-spacing: 4px;
         }
     </style>
 </head>
@@ -43,14 +41,13 @@
         window.onresize = resize;
         resize();
 
-        // Configurações baseadas no seu print, mas tunadas para perfeição
         const settings = {
             particles: {
                 length: 4000,
-                duration: 2.5,
-                velocity: 140,
-                effect: -0.6, // Valor exato do seu código
-                size: 1.8
+                duration: 3,
+                velocity: 100,
+                effect: -0.6,
+                size: 1.5
             }
         };
 
@@ -65,26 +62,31 @@
             this.age = 0;
         }
 
-        Particle.prototype.initialize = function(x, y, dx, dy) {
-            // Nasce exatamente no feixe central da base
-            this.position.x = canvas.width / 2 + (Math.random() - 0.5) * 10;
+        Particle.prototype.initialize = function(targetX, targetY) {
+            // Nasce no pilar central da base, como no vídeo
+            this.position.x = canvas.width / 2 + (Math.random() - 0.5) * 8;
             this.position.y = canvas.height * 0.85;
 
-            // Destino final no formato de coração
-            this.targetX = x;
-            this.targetY = y;
+            // Define o destino no formato de coração
+            this.targetX = targetX;
+            this.targetY = targetY;
 
-            // Velocidade inicial de subida rápida
-            this.velocity.x = (this.targetX - this.position.x) / (settings.particles.duration * 0.6);
-            this.velocity.y = (this.targetY - this.position.y) / (settings.particles.duration * 0.6);
+            // Força de subida e expansão
+            const dx = (this.targetX - this.position.x) / settings.particles.duration;
+            const dy = (this.targetY - this.position.y) / settings.particles.duration;
+
+            this.velocity.x = dx;
+            this.velocity.y = dy;
             
-            this.acceleration.x = this.velocity.x * settings.particles.effect;
-            this.acceleration.y = this.velocity.y * settings.particles.effect;
+            // Aceleração do seu print
+            this.acceleration.x = dx * settings.particles.effect;
+            this.acceleration.y = dy * settings.particles.effect;
             this.age = 0;
         };
 
         Particle.prototype.update = function(dt) {
-            this.position.x += this.velocity.x * dt;
+            // Adiciona uma leve oscilação lateral para parecer fluido/fumaça
+            this.position.x += this.velocity.x * dt + Math.sin(this.age * 5) * 0.5;
             this.position.y += this.velocity.y * dt;
             this.velocity.x += this.acceleration.x * dt;
             this.velocity.y += this.acceleration.y * dt;
@@ -94,16 +96,16 @@
         Particle.prototype.draw = function(context) {
             const progress = this.age / settings.particles.duration;
             const alpha = 1 - progress;
-            // Cor vermelha com variação de brilho
-            context.fillStyle = `rgba(255, ${Math.floor(40 * alpha)}, ${Math.floor(40 * alpha)}, ${alpha})`;
+            // Vermelho puro e intenso
+            context.fillStyle = `rgba(255, 0, 0, ${alpha})`;
             context.fillRect(this.position.x, this.position.y, settings.particles.size, settings.particles.size);
         };
 
         const pool = new Array(settings.particles.length).fill(null).map(() => new Particle());
         let firstActive = 0, firstFree = 0;
 
-        function addParticle(x, y, dx, dy) {
-            pool[firstFree].initialize(x, y, dx, dy);
+        function addParticle(x, y) {
+            pool[firstFree].initialize(x, y);
             firstFree = (firstFree + 1) % pool.length;
             if (firstActive === firstFree) firstActive = (firstActive + 1) % pool.length;
         }
@@ -120,21 +122,21 @@
             const dt = (time - lastTime) / 1000;
             lastTime = time;
 
-            // Rastro de "Fumaça Luminosa" (O segredo do vídeo)
+            // Rastro acumulado para o efeito de "glitter" denso
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Ativa o brilho aditivo (Glow)
+            // Brilho intenso nas sobreposições
             ctx.globalCompositeOperation = 'lighter';
 
             const scale = Math.min(canvas.width, canvas.height) / 45;
             const centerX = canvas.width / 2;
             const centerY = canvas.height * 0.45;
 
-            // Cria o fluxo contínuo de subida
-            for (let i = 0; i < 25; i++) {
-                const t = (Math.random() * 2 - 1) * Math.PI;
+            // Cria o pilar de subida
+            for (let i = 0; i < 30; i++) {
+                const t = Math.random() * Math.PI * 2;
                 const point = getHeartPoint(t);
                 addParticle(centerX + point.x * scale, centerY + point.y * scale);
             }
@@ -146,16 +148,15 @@
                 i = (i + 1) % pool.length;
             }
 
-            // Portal de luz na base
+            // O anel de energia na base (Portal)
             ctx.beginPath();
-            ctx.ellipse(centerX, canvas.height * 0.85, 90, 18, 0, 0, Math.PI * 2);
+            ctx.ellipse(centerX, canvas.height * 0.85, 80, 15, 0, 0, Math.PI * 2);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = "rgba(255, 0, 0, 0.9)";
+            ctx.stroke();
             ctx.shadowBlur = 15;
             ctx.shadowColor = "red";
-            ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
-            ctx.lineWidth = 3;
             ctx.stroke();
-            ctx.fillStyle = "rgba(139, 0, 0, 0.2)";
-            ctx.fill();
             ctx.shadowBlur = 0;
 
             requestAnimationFrame(render);
