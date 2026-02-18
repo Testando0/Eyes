@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I Love You - Crisálida Edition</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Arial', sans-serif;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .text-overlay {
+            position: relative;
+            z-index: 10;
+            color: #ff4d4d;
+            font-size: 3rem;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            text-shadow: 0 0 20px #ff0000;
+            pointer-events: none;
+            margin-bottom: 250px; /* Ajuste para o texto ficar acima do coração */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="text-overlay">I Love You</div>
+    <canvas id="heartCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('heartCanvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const particleCount = 600;
+
+        // Configurações baseadas no seu print
+        const settings = {
+            particles: {
+                length: 500,
+                duration: 2,
+                velocity: 100,
+                effect: -0.75, // Aceleração negativa para o efeito de "sucção" ou brilho
+                size: 3,
+            }
+        };
+
+        class Point {
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
+            }
+        }
+
+        class Particle {
+            constructor() {
+                this.position = new Point();
+                this.velocity = new Point();
+                this.acceleration = new Point();
+                this.age = 0;
+            }
+
+            initialize(x, y, dx, dy) {
+                this.position.x = x;
+                this.position.y = y;
+                this.velocity.x = dx;
+                this.velocity.y = dy;
+                this.acceleration.x = dx * settings.particles.effect;
+                this.acceleration.y = dy * settings.particles.effect;
+                this.age = 0;
+            }
+
+            update(deltaTime) {
+                this.position.x += this.velocity.x * deltaTime;
+                this.position.y += this.velocity.y * deltaTime;
+                this.velocity.x += this.acceleration.x * deltaTime;
+                this.velocity.y += this.acceleration.y * deltaTime;
+                this.age += deltaTime;
+            }
+
+            draw(ctx) {
+                const alpha = 1 - (this.age / settings.particles.duration);
+                ctx.fillStyle = `rgba(255, 30, 60, ${alpha})`; // Vermelho vibrante
+                ctx.fillRect(this.position.x, this.position.y, settings.particles.size, settings.particles.size);
+            }
+        }
+
+        // Função para calcular a forma do coração
+        function pointOnHeart(t) {
+            return new Point(
+                160 * Math.pow(Math.sin(t), 3),
+                130 * Math.cos(t) - 50 * Math.cos(2 * t) - 20 * Math.cos(3 * t) - 10 * Math.cos(4 * t)
+            );
+        }
+
+        const pool = new Array(settings.particles.length).fill(null).map(() => new Particle());
+        let firstActive = 0;
+        let firstFree = 0;
+
+        function addParticle(x, y, dx, dy) {
+            pool[firstFree].initialize(x, y, dx, dy);
+            firstFree++;
+            if (firstFree === pool.length) firstFree = 0;
+            if (firstActive === firstFree) firstActive++;
+            if (firstActive === pool.length) firstActive = 0;
+        }
+
+        function render() {
+            requestAnimationFrame(render);
+
+            const newTime = new Date().getTime() / 1000;
+            const deltaTime = newTime - (window.lastTime || newTime);
+            window.lastTime = newTime;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Criar novas partículas no formato de coração
+            const amount = 10;
+            for (let i = 0; i < amount; i++) {
+                const pos = pointOnHeart(Math.PI - 2 * Math.PI * Math.random());
+                const dir = pos.x * pos.x + pos.y * pos.y;
+                const norm = 1 / Math.sqrt(dir);
+                addParticle(
+                    canvas.width / 2 + pos.x,
+                    canvas.height / 2 - pos.y,
+                    pos.x * norm * settings.particles.velocity,
+                    -pos.y * norm * settings.particles.velocity
+                );
+            }
+
+            // Atualizar e desenhar
+            if (firstActive < firstFree) {
+                for (let i = firstActive; i < firstFree; i++) pool[i].update(deltaTime);
+                for (let i = firstActive; i < firstFree; i++) pool[i].draw(ctx);
+            } else {
+                for (let i = firstActive; i < pool.length; i++) pool[i].update(deltaTime);
+                for (let i = 0; i < firstFree; i++) pool[i].update(deltaTime);
+                for (let i = firstActive; i < pool.length; i++) pool[i].draw(ctx);
+                for (let i = 0; i < firstFree; i++) pool[i].draw(ctx);
+            }
+
+            while (pool[firstActive].age >= settings.particles.duration && firstActive !== firstFree) {
+                firstActive++;
+                if (firstActive === pool.length) firstActive = 0;
+            }
+        }
+
+        window.onresize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+
+        render();
+    </script>
+</body>
+</html>
