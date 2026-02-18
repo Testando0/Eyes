@@ -2,146 +2,149 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Para Você!</title>
+    <title>Heart - Crisálida</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #fce4ec; /* Um rosa bem clarinho e fofo */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+        * { margin: 0; padding: 0; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #text {
+            position: absolute;
+            top: 15%;
+            width: 100%;
+            text-align: center;
+            color: #ff0000;
             font-family: 'Arial', sans-serif;
-        }
-
-        #kitty-container {
-            position: absolute;
-            bottom: -150px; /* Começa fora da tela */
-            left: 50%;
-            transform: translateX(-50%);
-            animation: kittyEntrance 3s forwards ease-out;
+            font-size: 2.5rem;
+            text-shadow: 0 0 20px #ff0000;
             z-index: 10;
-        }
-
-        #kitty {
-            width: 100px; /* Tamanho fofo para o gatinho */
-            height: auto;
-            transform: rotate(-10deg); /* Uma leve inclinação para dar charme */
-            filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.3)); /* Uma sombra suave */
-        }
-
-        #heart-canvas {
-            position: absolute;
-            z-index: 5;
-            opacity: 0; /* Escondido no início */
-            animation: fadeInHeart 2s forwards 3.5s; /* Aparece depois do gatinho */
-        }
-
-        #love-text {
-            position: absolute;
-            color: #d81b60; /* Rosa mais forte para o texto */
-            font-size: 0em; /* Começa invisível */
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-            z-index: 6;
-            opacity: 0;
-            animation: typeText 2s forwards 5.5s, pulseText 1.5s infinite 7.5s; /* Aparece e pulsa depois do coração */
-            white-space: nowrap; /* Garante que "Te Amo" fique na mesma linha */
-        }
-
-        @keyframes kittyEntrance {
-            0% { bottom: -150px; }
-            50% { bottom: 10%; transform: translateX(-50%) rotate(0deg); } /* Entra e se estabiliza */
-            100% { bottom: 10%; transform: translateX(-50%) rotate(0deg); }
-        }
-
-        @keyframes fadeInHeart {
-            to { opacity: 1; }
-        }
-
-        @keyframes typeText {
-            0% { font-size: 0em; opacity: 0; }
-            100% { font-size: 3em; opacity: 1; } /* Aumenta para 3em */
-        }
-
-        @keyframes pulseText {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            letter-spacing: 5px;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div id="kitty-container">
-        <img id="kitty" src="https://www.freeiconspng.com/thumbs/kitty-png/kitty-png-1.png" alt="Gatinho Fofo">
-    </div>
-
-    <canvas id="heart-canvas"></canvas>
-    <div id="love-text">Te Amo!</div>
+    <div id="text">I LOVE YOU</div>
+    <canvas id="heart"></canvas>
 
     <script>
-        const canvas = document.getElementById('heart-canvas');
+        const canvas = document.getElementById('heart');
         const ctx = canvas.getContext('2d');
-        const loveText = document.getElementById('love-text');
 
-        let w, h;
-        function resizeCanvas() {
-            w = canvas.width = window.innerWidth;
-            h = canvas.height = window.innerHeight;
-            // Ajusta o texto para o centro do coração
-            loveText.style.left = (w / 2) + 'px';
-            loveText.style.top = (h / 2) + 'px';
-            loveText.style.transform = 'translate(-50%, -50%)'; /* Centraliza corretamente */
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const settings = {
+            particles: {
+                length: 3000,
+                duration: 2,
+                velocity: 140,
+                effect: -0.75, // O valor exato do seu print
+                size: 2
+            }
+        };
+
+        class Point {
+            constructor(x = 0, y = 0) { this.x = x; this.y = y; }
         }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
 
-        function drawHeart(callback) {
-            let angle = -Math.PI / 2;
-            const segments = 100;
-            const rotationSpeed = 0.05; // Velocidade do desenho
-            const scale = Math.min(w, h) * 0.15; // Tamanho do coração ajustável
+        function Particle() {
+            this.position = new Point();
+            this.velocity = new Point();
+            this.acceleration = new Point();
+            this.age = 0;
+        }
 
-            ctx.beginPath();
+        Particle.prototype.initialize = function(tx, ty, dx, dy) {
+            // Nasce no feixe central (base do vídeo)
+            this.position.x = canvas.width / 2;
+            this.position.y = canvas.height * 0.85;
+
+            this.velocity.x = dx;
+            this.velocity.y = dy;
             
-            // Ponto inicial do coração
-            let x = w / 2 + 16 * Math.pow(Math.sin(angle), 3) * scale / 250;
-            let y = h / 2 - (13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle)) * scale / 250;
-            ctx.moveTo(x, y);
+            // Aceleração negativa para criar a curva do coração
+            this.acceleration.x = dx * settings.particles.effect;
+            this.acceleration.y = dy * settings.particles.effect;
+            this.age = 0;
+        };
 
-            let drawingInterval = setInterval(() => {
-                if (angle >= Math.PI * 3 / 2) { // Termina de desenhar
-                    clearInterval(drawingInterval);
-                    ctx.closePath();
-                    ctx.fillStyle = '#ff4081'; /* Cor do coração preenchido */
-                    ctx.fill();
-                    ctx.strokeStyle = '#e91e63'; /* Borda do coração */
-                    ctx.lineWidth = 5;
-                    ctx.stroke();
-                    if (callback) callback();
-                    return;
-                }
+        Particle.prototype.update = function(dt) {
+            this.position.x += this.velocity.x * dt;
+            this.position.y += this.velocity.y * dt;
+            this.velocity.x += this.acceleration.x * dt;
+            this.velocity.y += this.acceleration.y * dt;
+            this.age += dt;
+        };
 
-                angle += rotationSpeed;
-                x = w / 2 + 16 * Math.pow(Math.sin(angle), 3) * scale / 250;
-                y = h / 2 - (13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle)) * scale / 250;
-                ctx.lineTo(x, y);
-                ctx.strokeStyle = '#e91e63'; /* Cor da linha enquanto desenha */
-                ctx.lineWidth = 5;
-                ctx.stroke();
+        Particle.prototype.draw = function() {
+            const alpha = 1 - (this.age / settings.particles.duration);
+            ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
+            ctx.fillRect(this.position.x, this.position.y, settings.particles.size, settings.particles.size * 2);
+        };
 
-            }, 20); // Intervalo de desenho
+        const pool = new Array(settings.particles.length).fill(null).map(() => new Particle());
+        let firstActive = 0, firstFree = 0;
+
+        function addParticle(dx, dy) {
+            pool[firstFree].initialize(0, 0, dx, dy);
+            firstFree = (firstFree + 1) % pool.length;
+            if (firstActive === firstFree) firstActive = (firstActive + 1) % pool.length;
         }
 
-        // Inicia o desenho do coração depois que o gatinho entra
-        setTimeout(() => {
-            drawHeart(() => {
-                // Depois de desenhar o coração, o texto aparece (animado por CSS)
-            });
-        }, 3500); // Atraso de 3.5 segundos para sincronizar com a animação do gatinho
-        
+        function getHeartPoint(t) {
+            return new Point(
+                16 * Math.pow(Math.sin(t), 3),
+                -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t))
+            );
+        }
+
+        let lastTime = 0;
+        function render(time) {
+            const dt = (time - lastTime) / 1000;
+            lastTime = time;
+
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; // Efeito de rastro/fumaça
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.globalCompositeOperation = 'lighter'; // Brilho intenso
+
+            const scale = Math.min(canvas.width, canvas.height) / 45;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height * 0.45;
+
+            // Dispara as partículas da base para os pontos do coração
+            for (let i = 0; i < 30; i++) {
+                const t = Math.random() * Math.PI * 2;
+                const point = getHeartPoint(t);
+                
+                const targetX = centerX + point.x * scale;
+                const targetY = centerY + point.y * scale;
+                
+                // Vetor de lançamento (da base até o ponto alvo)
+                const dx = (targetX - centerX) * 1.6;
+                const dy = (targetY - (canvas.height * 0.85)) * 1.6;
+
+                addParticle(dx, dy);
+            }
+
+            let i = firstActive;
+            while (i !== firstFree) {
+                pool[i].update(dt);
+                pool[i].draw();
+                i = (i + 1) % pool.length;
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        requestAnimationFrame(render);
     </script>
 </body>
 </html>
