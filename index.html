@@ -3,107 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>I Love You - Crisálida Edition</title>
+    <title>Para Você | Crisálida</title>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Arial', sans-serif;
-        }
-
         canvas {
             position: absolute;
-            top: 0;
             left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 1);
+        }
+        
+        #text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            top: 45%;
+            transform: translateY(-50%);
+            color: #ff2d55;
+            font-family: 'Georgia', serif;
+            font-size: 40px;
+            font-style: italic;
+            text-shadow: 0 0 20px rgba(255, 45, 85, 0.8);
+            pointer-events: none;
+            z-index: 10;
+            letter-spacing: 2px;
+            animation: pulse 2.5s ease-in-out infinite;
         }
 
-        .text-overlay {
-            position: relative;
-            z-index: 10;
-            color: #ff4d4d;
-            font-size: 3rem;
-            font-family: 'Comic Sans MS', cursive, sans-serif;
-            text-shadow: 0 0 20px #ff0000;
-            pointer-events: none;
-            margin-bottom: 250px; /* Ajuste para o texto ficar acima do coração */
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; transform: translateY(-50%) scale(1); }
+            50% { opacity: 1; transform: translateY(-50%) scale(1.05); }
         }
     </style>
 </head>
 <body>
 
-    <div class="text-overlay">I Love You</div>
-    <canvas id="heartCanvas"></canvas>
+    <div id="text">I Love You</div>
+    <canvas id="pinkboard"></canvas>
 
     <script>
-        const canvas = document.getElementById('heartCanvas');
-        const ctx = canvas.getContext('2d');
+    /* Configurações de Partículas */
+    var settings = {
+        particles: {
+            length:   1500, // quantidade de partículas
+            duration:   2.5, // duração em segundos
+            velocity:   80, // velocidade
+            effect:    -1.1, // fator de dispersão
+            size:       14, // tamanho máximo
+        },
+    };
 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+    (function() {
+        var b = 0;
+        var c = ["ms", "moz", "webkit", "o"];
+        for (var a = 0; a < c.length && !window.requestAnimationFrame; ++a) {
+            window.requestAnimationFrame = window[c[a] + "RequestAnimationFrame"];
+            window.cancelAnimationFrame = window[c[a] + "CancelAnimationFrame"] || window[c[a] + "CancelRequestAnimationFrame"]
+        }
+        if (!window.requestAnimationFrame) {
+            window.requestAnimationFrame = function(h, e) {
+                var d = new Date().getTime();
+                var f = Math.max(0, 16 - (d - b));
+                var g = window.setTimeout(function() { h(d + f) }, f);
+                b = d + f;
+                return g
+            }
+        }
+        if (!window.cancelAnimationFrame) { window.cancelAnimationFrame = function(d) { clearTimeout(d) } }
+    }());
 
-        const particles = [];
-        const particleCount = 600;
+    /* Classe de Ponto */
+    var Point = (function() {
+        function Point(x, y) {
+            this.x = (typeof x !== 'undefined') ? x : 0;
+            this.y = (typeof y !== 'undefined') ? y : 0;
+        }
+        Point.prototype.clone = function() { return new Point(this.x, this.y); };
+        Point.prototype.length = function(length) {
+            if (typeof length == 'undefined') return Math.sqrt(this.x * this.x + this.y * this.y);
+            this.normalize();
+            this.x *= length;
+            this.y *= length;
+            return this;
+        };
+        Point.prototype.normalize = function() {
+            var length = this.length();
+            this.x /= length;
+            this.y /= length;
+            return this;
+        };
+        return Point;
+    })();
 
-        // Configurações baseadas no seu print
-        const settings = {
-            particles: {
-                length: 500,
-                duration: 2,
-                velocity: 100,
-                effect: -0.75, // Aceleração negativa para o efeito de "sucção" ou brilho
-                size: 3,
+    /* Classe de Partícula */
+    var Particle = (function() {
+        function Particle() {
+            this.position = new Point();
+            this.velocity = new Point();
+            this.acceleration = new Point();
+            this.age = 0;
+        }
+        Particle.prototype.initialize = function(x, y, dx, dy) {
+            this.position.x = x;
+            this.position.y = y;
+            this.velocity.x = dx;
+            this.velocity.y = dy;
+            this.acceleration.x = dx * settings.particles.effect;
+            this.acceleration.y = dy * settings.particles.effect;
+            this.age = 0;
+        };
+        Particle.prototype.update = function(deltaTime) {
+            this.position.x += this.velocity.x * deltaTime;
+            this.position.y += this.velocity.y * deltaTime;
+            this.velocity.x += this.acceleration.x * deltaTime;
+            this.velocity.y += this.acceleration.y * deltaTime;
+            this.age += deltaTime;
+        };
+        Particle.prototype.draw = function(context, image) {
+            function ease(t) { return (--t) * t * t + 1; }
+            var size = image.width * ease(this.age / settings.particles.duration);
+            context.globalAlpha = 1 - this.age / settings.particles.duration;
+            context.drawImage(image, this.position.x - size / 2, this.position.y - size / 2, size, size);
+        };
+        return Particle;
+    })();
+
+    /* Pool de Partículas para performance */
+    var ParticlePool = (function() {
+        var particles,
+            firstActive = 0,
+            firstFree = 0,
+            duration = settings.particles.duration;
+
+        function ParticlePool(length) {
+            particles = new Array(length);
+            for (var i = 0; i < particles.length; i++) particles[i] = new Particle();
+        }
+        ParticlePool.prototype.add = function(x, y, dx, dy) {
+            particles[firstFree].initialize(x, y, dx, dy);
+            firstFree++;
+            if (firstFree == particles.length) firstFree = 0;
+            if (firstActive == firstFree) firstActive++;
+            if (firstActive == particles.length) firstActive = 0;
+        };
+        ParticlePool.prototype.update = function(deltaTime) {
+            var i;
+            if (firstActive < firstFree) {
+                for (i = firstActive; i < firstFree; i++) particles[i].update(deltaTime);
+            }
+            if (firstFree < firstActive) {
+                for (i = firstActive; i < particles.length; i++) particles[i].update(deltaTime);
+                for (i = 0; i < firstFree; i++) particles[i].update(deltaTime);
+            }
+            while (particles[firstActive].age >= duration && firstActive != firstFree) {
+                firstActive++;
+                if (firstActive == particles.length) firstActive = 0;
             }
         };
-
-        class Point {
-            constructor(x = 0, y = 0) {
-                this.x = x;
-                this.y = y;
+        ParticlePool.prototype.draw = function(context, image) {
+            if (firstActive < firstFree) {
+                for (i = firstActive; i < firstFree; i++) particles[i].draw(context, image);
             }
-        }
-
-        class Particle {
-            constructor() {
-                this.position = new Point();
-                this.velocity = new Point();
-                this.acceleration = new Point();
-                this.age = 0;
+            if (firstFree < firstActive) {
+                for (i = firstActive; i < particles.length; i++) particles[i].draw(context, image);
+                for (i = 0; i < firstFree; i++) particles[i].draw(context, image);
             }
+        };
+        return ParticlePool;
+    })();
 
-            initialize(x, y, dx, dy) {
-                this.position.x = x;
-                this.position.y = y;
-                this.velocity.x = dx;
-                this.velocity.y = dy;
-                this.acceleration.x = dx * settings.particles.effect;
-                this.acceleration.y = dy * settings.particles.effect;
-                this.age = 0;
-            }
+    /* Inicia o render */
+    (function(canvas) {
+        var context = canvas.getContext('2d'),
+            particles = new ParticlePool(settings.particles.length),
+            particleRate = settings.particles.length / settings.particles.duration,
+            time;
 
-            update(deltaTime) {
-                this.position.x += this.velocity.x * deltaTime;
-                this.position.y += this.velocity.y * deltaTime;
-                this.velocity.x += this.acceleration.x * deltaTime;
-                this.velocity.y += this.acceleration.y * deltaTime;
-                this.age += deltaTime;
-            }
-
-            draw(ctx) {
-                const alpha = 1 - (this.age / settings.particles.duration);
-                ctx.fillStyle = `rgba(255, 30, 60, ${alpha})`; // Vermelho vibrante
-                ctx.fillRect(this.position.x, this.position.y, settings.particles.size, settings.particles.size);
-            }
-        }
-
-        // Função para calcular a forma do coração
+        // Função do formato do coração
         function pointOnHeart(t) {
             return new Point(
                 160 * Math.pow(Math.sin(t), 3),
@@ -111,64 +188,66 @@
             );
         }
 
-        const pool = new Array(settings.particles.length).fill(null).map(() => new Particle());
-        let firstActive = 0;
-        let firstFree = 0;
-
-        function addParticle(x, y, dx, dy) {
-            pool[firstFree].initialize(x, y, dx, dy);
-            firstFree++;
-            if (firstFree === pool.length) firstFree = 0;
-            if (firstActive === firstFree) firstActive++;
-            if (firstActive === pool.length) firstActive = 0;
-        }
+        // Cria a textura da partícula (um pequeno coração brilhante)
+        var image = (function() {
+            var canvas = document.createElement('canvas'),
+                context = canvas.getContext('2d');
+            canvas.width = settings.particles.size;
+            canvas.height = settings.particles.size;
+            
+            function drawHeartPath(context) {
+                context.beginPath();
+                var t = -Math.PI;
+                var point = pointOnHeart(t);
+                context.moveTo(canvas.width / 2 + point.x / 20, canvas.height / 2 - point.y / 20);
+                while (t < Math.PI) {
+                    t += 0.01;
+                    point = pointOnHeart(t);
+                    context.lineTo(canvas.width / 2 + point.x / 20, canvas.height / 2 - point.y / 20);
+                }
+                context.closePath();
+            }
+            
+            // Estilo da partícula - Vermelho Ruby com brilho
+            context.fillStyle = '#ff2d55';
+            drawHeartPath(context);
+            context.fill();
+            
+            var image = new Image();
+            image.src = canvas.toDataURL();
+            return image;
+        })();
 
         function render() {
             requestAnimationFrame(render);
+            var newTime = new Date().getTime() / 1000,
+                deltaTime = newTime - (time || newTime);
+            time = newTime;
 
-            const newTime = new Date().getTime() / 1000;
-            const deltaTime = newTime - (window.lastTime || newTime);
-            window.lastTime = newTime;
+            context.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Criar novas partículas no formato de coração
-            const amount = 10;
-            for (let i = 0; i < amount; i++) {
-                const pos = pointOnHeart(Math.PI - 2 * Math.PI * Math.random());
-                const dir = pos.x * pos.x + pos.y * pos.y;
-                const norm = 1 / Math.sqrt(dir);
-                addParticle(
-                    canvas.width / 2 + pos.x,
-                    canvas.height / 2 - pos.y,
-                    pos.x * norm * settings.particles.velocity,
-                    -pos.y * norm * settings.particles.velocity
-                );
+            var amount = particleRate * deltaTime;
+            for (var i = 0; i < amount; i++) {
+                var pos = pointOnHeart(Math.PI - 2 * Math.PI * Math.random());
+                var dir = pos.clone().length(settings.particles.velocity);
+                particles.add(canvas.width / 2 + pos.x, canvas.height / 2 - pos.y, dir.x, -dir.y);
             }
 
-            // Atualizar e desenhar
-            if (firstActive < firstFree) {
-                for (let i = firstActive; i < firstFree; i++) pool[i].update(deltaTime);
-                for (let i = firstActive; i < firstFree; i++) pool[i].draw(ctx);
-            } else {
-                for (let i = firstActive; i < pool.length; i++) pool[i].update(deltaTime);
-                for (let i = 0; i < firstFree; i++) pool[i].update(deltaTime);
-                for (let i = firstActive; i < pool.length; i++) pool[i].draw(ctx);
-                for (let i = 0; i < firstFree; i++) pool[i].draw(ctx);
-            }
-
-            while (pool[firstActive].age >= settings.particles.duration && firstActive !== firstFree) {
-                firstActive++;
-                if (firstActive === pool.length) firstActive = 0;
-            }
+            particles.update(deltaTime);
+            particles.draw(context, image);
         }
 
-        window.onresize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        };
+        function onResize() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        window.onresize = onResize;
 
-        render();
+        setTimeout(function() {
+            onResize();
+            render();
+        }, 10);
+    })(document.getElementById('pinkboard'));
     </script>
 </body>
 </html>
