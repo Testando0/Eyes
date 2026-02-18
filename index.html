@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crisálida - Red Heart Flow</title>
+    <title>Crisálida - Coração de Fogo</title>
     <style>
         * { margin: 0; padding: 0; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000; }
-        canvas { display: block; filter: blur(0.5px) contrast(1.2); }
+        body, html { 
+            width: 100%; height: 100%; 
+            overflow: hidden; background-color: #000; 
+        }
+        canvas { display: block; }
         #text {
             position: absolute;
             top: 15%;
@@ -15,13 +18,12 @@
             text-align: center;
             color: #ff0000;
             font-family: 'Arial', sans-serif;
-            font-size: 2.5rem;
-            font-weight: bold;
+            font-size: 2.8rem;
             text-transform: uppercase;
             text-shadow: 0 0 20px #ff0000;
-            z-index: 100;
+            z-index: 10;
             pointer-events: none;
-            letter-spacing: 4px;
+            letter-spacing: 5px;
         }
     </style>
 </head>
@@ -34,19 +36,15 @@
         const canvas = document.getElementById('heart');
         const ctx = canvas.getContext('2d');
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.onresize = resize;
-        resize();
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
         const settings = {
             particles: {
-                length: 4000,
-                duration: 3,
-                velocity: 100,
-                effect: -0.6,
+                length: 5000, 
+                duration: 2, 
+                velocity: 120,
+                effect: -0.75, // Lógica exata do print
                 size: 1.5
             }
         };
@@ -55,6 +53,7 @@
             constructor(x = 0, y = 0) { this.x = x; this.y = y; }
         }
 
+        // Classe fiel à estrutura do seu print
         function Particle() {
             this.position = new Point();
             this.velocity = new Point();
@@ -62,31 +61,23 @@
             this.age = 0;
         }
 
-        Particle.prototype.initialize = function(targetX, targetY) {
-            // Nasce no pilar central da base, como no vídeo
-            this.position.x = canvas.width / 2 + (Math.random() - 0.5) * 8;
+        Particle.prototype.initialize = function(tx, ty, dx, dy) {
+            // Nasce na base central (feixe de luz do vídeo)
+            this.position.x = canvas.width / 2;
             this.position.y = canvas.height * 0.85;
 
-            // Define o destino no formato de coração
-            this.targetX = targetX;
-            this.targetY = targetY;
-
-            // Força de subida e expansão
-            const dx = (this.targetX - this.position.x) / settings.particles.duration;
-            const dy = (this.targetY - this.position.y) / settings.particles.duration;
-
+            // Velocidade inicial de ejeção
             this.velocity.x = dx;
             this.velocity.y = dy;
             
-            // Aceleração do seu print
+            // Aceleração calculada via settings.particles.effect
             this.acceleration.x = dx * settings.particles.effect;
             this.acceleration.y = dy * settings.particles.effect;
             this.age = 0;
         };
 
         Particle.prototype.update = function(dt) {
-            // Adiciona uma leve oscilação lateral para parecer fluido/fumaça
-            this.position.x += this.velocity.x * dt + Math.sin(this.age * 5) * 0.5;
+            this.position.x += this.velocity.x * dt;
             this.position.y += this.velocity.y * dt;
             this.velocity.x += this.acceleration.x * dt;
             this.velocity.y += this.acceleration.y * dt;
@@ -96,16 +87,16 @@
         Particle.prototype.draw = function(context) {
             const progress = this.age / settings.particles.duration;
             const alpha = 1 - progress;
-            // Vermelho puro e intenso
             context.fillStyle = `rgba(255, 0, 0, ${alpha})`;
-            context.fillRect(this.position.x, this.position.y, settings.particles.size, settings.particles.size);
+            // Rastro vertical leve para simular o feixe
+            context.fillRect(this.position.x, this.position.y, settings.particles.size, settings.particles.size * 2);
         };
 
         const pool = new Array(settings.particles.length).fill(null).map(() => new Particle());
         let firstActive = 0, firstFree = 0;
 
-        function addParticle(x, y) {
-            pool[firstFree].initialize(x, y);
+        function addParticle(tx, ty, dx, dy) {
+            pool[firstFree].initialize(tx, ty, dx, dy);
             firstFree = (firstFree + 1) % pool.length;
             if (firstActive === firstFree) firstActive = (firstActive + 1) % pool.length;
         }
@@ -122,23 +113,31 @@
             const dt = (time - lastTime) / 1000;
             lastTime = time;
 
-            // Rastro acumulado para o efeito de "glitter" denso
+            // Fundo preto com leve persistência para o rastro do vídeo
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Brilho intenso nas sobreposições
+            // Ativa o brilho intenso (Add-Glow)
             ctx.globalCompositeOperation = 'lighter';
 
             const scale = Math.min(canvas.width, canvas.height) / 45;
             const centerX = canvas.width / 2;
             const centerY = canvas.height * 0.45;
 
-            // Cria o pilar de subida
-            for (let i = 0; i < 30; i++) {
+            // Gerador de fluxo: o segredo está no vetor dx/dy de subida
+            for (let i = 0; i < 40; i++) {
                 const t = Math.random() * Math.PI * 2;
                 const point = getHeartPoint(t);
-                addParticle(centerX + point.x * scale, centerY + point.y * scale);
+                
+                const targetX = centerX + point.x * scale;
+                const targetY = centerY + point.y * scale;
+                
+                // Vetor que faz a partícula subir e se abrir
+                const dx = (targetX - centerX) / (settings.particles.duration * 0.4);
+                const dy = (targetY - (canvas.height * 0.85)) / (settings.particles.duration * 0.4);
+
+                addParticle(targetX, targetY, dx, dy);
             }
 
             let i = firstActive;
@@ -148,19 +147,22 @@
                 i = (i + 1) % pool.length;
             }
 
-            // O anel de energia na base (Portal)
+            // Portal na base
             ctx.beginPath();
             ctx.ellipse(centerX, canvas.height * 0.85, 80, 15, 0, 0, Math.PI * 2);
-            ctx.lineWidth = 4;
-            ctx.strokeStyle = "rgba(255, 0, 0, 0.9)";
-            ctx.stroke();
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 20;
             ctx.shadowColor = "red";
-            ctx.stroke();
+            ctx.fillStyle = "rgba(255, 0, 0, 0.4)";
+            ctx.fill();
             ctx.shadowBlur = 0;
 
             requestAnimationFrame(render);
         }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
 
         requestAnimationFrame(render);
     </script>
